@@ -1,0 +1,391 @@
+ 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Draw a straight line</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+    </style>
+    	<script src="https://threejs.org/build/three.js"></script>
+        <script src="https://threejs.org/build/three.min.js"></script>
+        <script src="https://threejs.org/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+<script>
+ 
+    var scene, camera, renderer, controls;
+    var stats = initStats();
+ 
+         /* Variables required for ground grid */
+         var length = 200; /*Line length*/
+ 
+         /* Scenes */ 
+    function initScene() {
+ 
+        scene = new THREE.Scene();
+ 
+    }
+ 
+         /* Camera */
+    function initCamera() {
+ 
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+        camera.position.set(0, 200, 250);
+        camera.lookAt(new THREE.Vector3(0, 0, 0));
+ 
+    }
+ 
+         /* Renderer */ 
+    function initRender() {
+ 
+        renderer = new THREE.WebGLRenderer({antialias: true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+ 
+    }
+ 
+         /* Lighting */
+    function initLight() {
+ 
+        var ambientLight = new THREE.AmbientLight(0x333333);
+        scene.add(ambientLight);
+ 
+        var directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+        directionalLight.position.set(100, 300, 200);
+        scene.add(directionalLight);
+ 
+    }
+ 
+         /* Controller */
+    function initControls() {
+ 
+        controls = new THREE.OrbitControls(camera, renderer.domElement);
+                 /* Other attributes default */
+ 
+    }
+ 
+         /* Scene content */
+    function initContent() {
+ 
+                 var geometry = new THREE.Geometry();/* simple basic geometry */
+                 var lineMaterial = new THREE.LineBasicMaterial({color: 0x808080});/* basic line material */
+ 
+                 var planeGeometry = new THREE.PlaneGeometry(length, 10);/* plane width: 200, and height: 10 */
+                 var planeMaterial = new THREE.MeshBasicMaterial({color: 0xD9D9D9, side: THREE.DoubleSide});/* plane material */
+ 
+                 geometry.vertices.push(new THREE.Vector3(-length / 2, 0, 0)); /* Vertex (-100, 0, 0) */
+                 geometry.vertices.push(new THREE.Vector3(length / 2, 0, 0)); /* Vertex (100, 0, 0) */
+ 
+                 /* Create line segments in a loop */
+        for (var i = 0; i <= length / 10; i++){
+ 
+                         /* Horizontal line segment */
+            var lineX = new THREE.Line(geometry, lineMaterial);
+            lineX.position.z = (i * 10) - length / 2;
+            scene.add(lineX);
+ 
+                         /* Vertical line segment */
+            var lineY = new THREE.Line(geometry, lineMaterial);
+            lineY.rotation.y = 0.5 * Math.PI;
+            lineY.position.x = (i * 10) - length / 2;
+            scene.add(lineY);
+ 
+        }
+ 
+                 /* Create a bounding plane */
+        var planeX_left = new THREE.Mesh(planeGeometry, planeMaterial);
+        planeX_left.rotation.y = 0.5 * Math.PI;
+        planeX_left.position.x = -length / 2;
+ 
+        var planeX_right = planeX_left.clone();
+        planeX_right.position.x = length / 2;
+ 
+        var planeY_top = new THREE.Mesh(planeGeometry, planeMaterial);
+        planeY_top.position.z = -length / 2;
+ 
+        var planeY_bottom = planeY_top.clone();
+        planeY_bottom.position.z = length / 2;
+ 
+        scene.add(planeY_bottom);
+        scene.add(planeY_top);
+        scene.add(planeX_left);
+        scene.add(planeX_right);
+ 
+                 /* Position of the four surrounding surfaces y-axis up 5 */
+        scene.traverse(function (object) {
+ 
+            if (object.isMesh){
+ 
+                if (object.geometry.type === 'PlaneGeometry'){
+ 
+                    object.position.y = 5;
+ 
+                }
+ 
+            }
+ 
+        });
+ 
+    }
+ 
+         /* Get the intersection point where the ray intersects the plane */
+    function getIntersects(event) {
+ 
+        var raycaster = new THREE.Raycaster();
+        var mouse = new THREE.Vector2();
+ 
+        mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+ 
+        var normal = new THREE.Vector3(0, 1, 0);
+                 /* Create a plane */
+        var planeGround = new THREE.Plane(normal, 0);
+ 
+                 /* The position where a ray emitted from the camera is clicked by the mouse */
+        raycaster.setFromCamera(mouse, camera);
+ 
+                 /* Get rays */
+        var ray = raycaster.ray;
+ 
+                 /* Calculate the object from the camera to the ray, there may be multiple objects, return an array, arranged according to the distance from the camera */
+        var intersects = ray.intersectPlane(planeGround);
+ 
+                 /* return vector */
+        return intersects;
+ 
+    }
+ 
+    var pointsArray = [];
+    var window_mouse = true;
+         /* Mouse down event */
+    function onMouseDown(event) {
+ 
+                 /* Obtain the intersection point of the rays emitted by the camera and Plane*/
+        var intersects = getIntersects(event);
+ 
+                 /* Store the 3D coordinates of the grid */
+        var vector3_x, vector3_z;
+ 
+                 /* When the left mouse button is pressed, points and line segments are created */
+        if (event.button === 0) {
+ 
+            if (!window_mouse){
+ 
+                window.addEventListener('mousemove', onMouseMove, false);
+ 
+                                 /* Avoid repeated addition of events based on the windwo_mouse flag */
+                window_mouse = true;
+ 
+            }
+ 
+                         /* Determine whether the intersection point is between x(-100, 100) and z(-100, 100) (plane) */
+            if (Math.abs(intersects.x) < length / 2 && Math.abs(intersects.z) < length / 2){
+ 
+                                 /* If the intersection point is within the plane at this time, create points (Points) */
+                var pointsGeometry = new THREE.Geometry();
+                pointsGeometry.vertices.push(intersects);
+ 
+                var pointsMaterial = new THREE.PointsMaterial({color:0xff0000, size: 3});
+                var points = new THREE.Points(pointsGeometry, pointsMaterial);
+ 
+                pointsArray.push(points);
+ 
+                                 /* Create a line segment */
+                var lineGeometry = new THREE.Geometry();
+                var lineMaterial = new THREE.LineBasicMaterial({color: 0x00ff00});
+ 
+                if (pointsArray.length >= 2) {
+ 
+                    lineGeometry.vertices.push(pointsArray[0].geometry.vertices[0], pointsArray[1].geometry.vertices[0]);
+ 
+                    var line = new THREE.Line(lineGeometry, lineMaterial);
+                    pointsArray.shift();
+                    scene.add(line);
+ 
+                }
+ 
+                scene.add(points);
+ 
+            }
+ 
+        }
+ 
+                 /* When the right mouse button is pressed, go back to the previous point and interrupt drawing */
+        if (event.button === 2) {
+ 
+            window.removeEventListener('mousemove', onMouseMove, false);
+ 
+                         /* After removing the event, set it to false in order to avoid repeated addition of the event */
+            window_mouse = false;
+ 
+                         /* The movement state of the line segment when the left mouse button is not clicked */
+            if (scene.getObjectByName('line_move')) {
+ 
+                scene.remove(scene.getObjectByName('line_move'));
+ 
+                                 /* Delete the elements in the array, otherwise redraw will link the previous point and then redraw*/
+                
+                 pointsArray.shift();
+            }
+        }
+    }
+         /* Mouse movement event */
+    function onMouseMove(event) {
+ 
+        var intersects = getIntersects(event);
+ 
+                 /* Determine whether the intersection point is between x(-100, 100) and z(-100, 100) (plane) */
+        if (Math.abs(intersects.x) < length / 2 && Math.abs(intersects.z) < length / 2) {
+ 
+                         /* The movement state of the line segment when the left mouse button is not clicked */
+            if (scene.getObjectByName('line_move')) {
+ 
+                scene.remove(scene.getObjectByName('line_move'));
+ 
+            }
+                         /* Create a line segment */
+            var lineGeometry = new THREE.Geometry();
+            var lineMaterial = new THREE.LineBasicMaterial({color: 0x00ff00});
+ 
+            if (pointsArray.length > 0){
+ 
+                lineGeometry.vertices.push(pointsArray[0].geometry.vertices[0]);
+ 
+                var mouseVector3 = new THREE.Vector3(intersects.x, 0, intersects.z);
+ 
+                lineGeometry.vertices.push(mouseVector3);
+ 
+                var line = new THREE.Line(lineGeometry, lineMaterial);
+                line.name = 'line_move';
+ 
+                scene.add(line);
+ 
+            }
+ 
+        }
+ 
+    }
+ 
+         /* Keyboard press event */
+    function onKeyDown(event) {
+ 
+                 /* ESC to go back to the previous step of drawing and end drawing */
+        if (event.key === 'Escape'){
+ 
+            window.removeEventListener('mousemove', onMouseMove, false);
+ 
+                         /* After removing the event, set it to false in order to avoid repeated addition of the mousemove event */
+            window_mouse = false;
+ 
+                         /* The movement state of the line segment when the left mouse button is not clicked */
+            if (scene.getObjectByName('line_move')) {
+ 
+                scene.remove(scene.getObjectByName('line_move'));
+ 
+                                 /* Delete the elements in the array, otherwise redrawing will link the previous point and then redraw */
+                    pointsArray.shift();
+ 
+            }
+ 
+            var length = scene.children.length - 1;
+                         /* Follow the steps to remove points and first */
+            if (scene.children[length].isLine || scene.children[length].isPoints){
+ 
+                scene.children.pop();
+                length = scene.children.length - 1;
+ 
+                                 /* Do not remove if the last item is not a line segment or point */
+                if (!scene.children[length].isMesh) {
+ 
+                    scene.children.pop();
+ 
+                }
+ 
+            }
+ 
+        }
+ 
+    }
+ 
+         /* update data */ 
+    function update() {
+ 
+        stats.update();
+        controls.update();
+ 
+    }
+ 
+         /* Performance plugin */
+    function initStats() {
+ 
+        var stats = new Stats();
+ 
+        stats.setMode(0);
+        stats.domElement.style.position = 'absolute';
+        stats.domElement.style.left = '0px';
+        stats.domElement.style.right = '0px';
+ 
+        document.body.appendChild(stats.domElement);
+ 
+        return stats;
+ 
+    }
+ 
+         /* The window automatically adapts */
+    function onWindowResize() {
+ 
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+ 
+    }
+ 
+         /* Cycle call */
+    function animate() {
+ 
+        requestAnimationFrame(animate);
+        renderer.render(scene, camera);
+        update();
+ 
+    }
+ 
+    /* Initialization */
+    function init() {
+ 
+                 /* Compatibility judgment */
+        //if (!Detector.webgl) Detector.addGetWebGLMessage();
+ 
+        initScene();
+        initCamera();
+        initRender();
+        initLight();
+        initContent();
+        initControls();
+ 
+                 /* Event monitoring */
+        window.addEventListener('resize', onWindowResize, false);
+                 window.addEventListener('mousedown', onMouseDown, false);/* When using mousedown, you can determine the left and right mouse button clicks
+        window.addEventListener('mousemove', onMouseMove, false);
+                 window.addEventListener('keydown', onKeyDown, false); /* When using events, remove the previous on */
+ 
+    }
+ 
+         /* Initial loading */
+    (function () {
+ 
+        console.log('three start...');
+ 
+        init();
+        animate();
+ 
+        console.log('three end...');
+ 
+    })();
+
+</script>
+</body>
+</html>
